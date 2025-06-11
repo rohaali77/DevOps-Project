@@ -2,10 +2,6 @@ pipeline {
   agent any
   environment {
     AZURE_CREDENTIALS = credentials('azure-credentials')
-    ARM_CLIENT_ID = credentials('azure-credentials').clientId
-    ARM_CLIENT_SECRET = credentials('azure-credentials').clientSecret
-    ARM_TENANT_ID = credentials('azure-credentials').tenantId
-    ARM_SUBSCRIPTION_ID = credentials('azure-credentials').subscriptionId
     SSH_CREDENTIALS = credentials('ssh-key')
   }
   stages {
