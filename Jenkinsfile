@@ -7,7 +7,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        git url: 'https://github.com/rohaali77/DevOps-Project/edit/main/Jenkinsfile', branch: 'main'
+        git url: 'https://github.com/rohaali77/DevOps-Project', branch: 'main'
       }
     }
     stage('Terraform Init') {
