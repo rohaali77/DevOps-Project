@@ -1,0 +1,22 @@
+---
+- name: Install and configure web server
+  hosts: web
+  become: yes
+  tasks:
+    - name: Install Apache
+      apt:
+        name: apache2
+        state: present
+        update_cache: yes
+
+    - name: Start Apache
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Deploy index.html
+      copy:
+        src: ../app/index.html
+        dest: /var/www/html/index.html
+        mode: '0644'
