@@ -10,6 +10,14 @@ pipeline {
         git url: 'https://github.com/rohaali77/DevOps-Project', branch: 'main'
       }
     }
+    stage('Debug Credentials') {
+      steps {
+        sh 'echo $ARM_CLIENT_ID'
+        sh 'echo $ARM_SUBSCRIPTION_ID'
+        sh 'echo $ARM_TENANT_ID'
+        sh 'echo $ARM_CLIENT_SECRET'
+      }
+    }
     stage('Terraform Init') {
       steps {
         dir('terraform') {
