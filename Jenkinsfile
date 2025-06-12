@@ -1,17 +1,12 @@
 pipeline {
     agent any
     environment {
-        ARM_CLIENT_ID = credentials('ARM_CLIENT_ID')
-        ARM_SUBSCRIPTION_ID = credentials('ARM_SUBSCRIPTION_ID')
-        ARM_TENANT_ID = credentials('ARM_TENANT_ID')
-        ARM_CLIENT_SECRET = credentials('ARM_CLIENT_SECRET')
+        ARM_CLIENT_ID = credentials('arm-client-id')
+        ARM_CLIENT_SECRET = credentials('arm-client-secret')
+        ARM_TENANT_ID = credentials('arm-tenant-id')
+        ARM_SUBSCRIPTION_ID = credentials('arm-subscription-id')
     }
     stages {
-        stage('Declarative: Checkout SCM') {
-            steps {
-                checkout scm
-            }
-        }
         stage('Debug Credentials') {
             steps {
                 sh 'echo $ARM_CLIENT_ID'
@@ -35,8 +30,10 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {
-                    sh 'terraform apply -auto-approve'
-                    sh 'terraform output -raw public_ip > ../ansible/public_ip.txt'
+                    sh '''
+                        terraform apply -auto-approve
+                        terraform output -raw public_ip > ../ansible/public_ip.txt
+                    '''
                 }
             }
         }
@@ -48,8 +45,7 @@ pipeline {
                         echo "all:" >> inventory.yml
                         echo "  hosts:" >> inventory.yml
                         echo "    web:" >> inventory.yml
-                        cat public_ip.txt >> inventory.yml
-                        echo "      ansible_host: \$(cat public_ip.txt)" >> inventory.yml
+                        echo "      ansible_host: $(cat public_ip.txt)" >> inventory.yml
                         echo "      ansible_user: azureuser" >> inventory.yml
                         echo "      ansible_ssh_private_key_file: ~/.ssh/id_rsa" >> inventory.yml
                     '''
@@ -65,18 +61,17 @@ pipeline {
         }
         stage('Verify Deployment') {
             steps {
-                dir('ansible') {
-                    sh 'curl http://$(cat public_ip.txt) || echo "Verification failed, check manually"'
-                }
+                sh '''
+                    PUBLIC_IP=$(cat ansible/public_ip.txt)
+                    curl http://$PUBLIC_IP || echo "Verification failed, check manually"
+                '''
             }
         }
     }
     post {
         always {
-            node {
-                dir('terraform') {
-                    sh 'terraform destroy -auto-approve'
-                }
+            dir('terraform') {
+                sh 'terraform destroy -auto-approve'
             }
         }
     }
