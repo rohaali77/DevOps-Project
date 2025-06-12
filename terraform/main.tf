@@ -53,9 +53,12 @@ resource "azurerm_network_security_group" "nsg" {
 
 resource "azurerm_public_ip" "public_ip" {
   name                = "my-public-ip"
-  location            = azurerm_resource_group.rg.location
+  location            = "eastus"
   resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Dynamic"
+  allocation_method   = "Static"  # Changed from Dynamic
+  sku                 = "Standard"
+  idle_timeout_in_minutes = 4
+  ip_version          = "IPv4"
 }
 
 resource "azurerm_network_interface" "nic" {
