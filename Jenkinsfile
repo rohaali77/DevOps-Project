@@ -1,21 +1,23 @@
 pipeline {
   agent any
   environment {
-    AZURE_CREDENTIALS = credentials('azure-credentials')
-    SSH_CREDENTIALS = credentials('ssh-key')
+    ARM_CLIENT_ID = credentials('arm-client-id')
+    ARM_CLIENT_SECRET = credentials('arm-client-secret')
+    ARM_TENANT_ID = credentials('arm-tenant-id')
+    ARM_SUBSCRIPTION_ID = credentials('arm-subscription-id')
   }
   stages {
-    stage('Checkout') {
-      steps {
-        git url: 'https://github.com/rohaali77/DevOps-Project', branch: 'main'
-      }
-    }
     stage('Debug Credentials') {
       steps {
         sh 'echo $ARM_CLIENT_ID'
         sh 'echo $ARM_SUBSCRIPTION_ID'
         sh 'echo $ARM_TENANT_ID'
         sh 'echo $ARM_CLIENT_SECRET'
+      }
+    }
+    stage('Checkout') {
+      steps {
+        git url: 'https://github.com/rohaali77/DevOps-Project', branch: 'main'
       }
     }
     stage('Terraform Init') {
