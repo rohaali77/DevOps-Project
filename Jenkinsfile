@@ -55,7 +55,7 @@ pipeline {
         stage('Ansible Deploy') {
             steps {
                 dir('ansible') {
-                    sh '/usr/local/bin/ansible-playbook -i inventory.yml install_web.yml -e "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+                    sh '/usr/local/bin/ansible-playbook -i inventory.yml install_web.yml -e "ansible_ssh_common_args=\'-o StrictHostKeyChecking=no\'"'
                 }
             }
         }
