@@ -1,55 +1,64 @@
 pipeline {
   agent any
+
   environment {
-    AZURE_CREDENTIALS = credentials('azure-credentials')
-    SSH_CREDENTIALS = credentials('ssh-key')
+    SSH_KEY_PATH = "${WORKSPACE}/id_rsa"
   }
+
   stages {
     stage('Checkout') {
       steps {
         git url: 'https://github.com/rohaali77/DevOps-Project', branch: 'main'
       }
     }
-    stage('Debug Credentials') {
+
+    stage('Terraform Provision') {
       steps {
-        sh 'echo $ARM_CLIENT_ID'
-        sh 'echo $ARM_SUBSCRIPTION_ID'
-        sh 'echo $ARM_TENANT_ID'
-        sh 'echo $ARM_CLIENT_SECRET'
-      }
-    }
-    stage('Terraform Init') {
-      steps {
-        dir('terraform') {
-          sh 'terraform init'
-        }
-      }
-    }
-    stage('Terraform Apply') {
-      steps {
-        dir('terraform') {
+        withCredentials([
+          string(credentialsId: 'azure-client-id', variable: 'ARM_CLIENT_ID'),
+          string(credentialsId: 'azure-client-secret', variable: 'ARM_CLIENT_SECRET'),
+          string(credentialsId: 'azure-tenant-id', variable: 'ARM_TENANT_ID'),
+          string(credentialsId: 'azure-subscription-id', variable: 'ARM_SUBSCRIPTION_ID'),
+          sshUserPrivateKey(credentialsId: 'ssh-key', keyFileVariable: 'SSH_KEY_FILE')
+        ]) {
           sh '''
+            # Set up SSH key
+            cp $SSH_KEY_FILE $SSH_KEY_PATH
+            chmod 600 $SSH_KEY_PATH
+
+            # Export Azure environment variables for Terraform
+            export ARM_CLIENT_ID=$ARM_CLIENT_ID
+            export ARM_CLIENT_SECRET=$ARM_CLIENT_SECRET
+            export ARM_TENANT_ID=$ARM_TENANT_ID
+            export ARM_SUBSCRIPTION_ID=$ARM_SUBSCRIPTION_ID
+
+            cd terraform
+            terraform init
             terraform apply -auto-approve
             terraform output -raw public_ip > ../ansible/public_ip.txt
           '''
         }
       }
     }
+
     stage('Ansible Inventory') {
       steps {
         dir('ansible') {
           sh '''
-            echo "---" > inventory.yml
-            echo "all:" >> inventory.yml
-            echo "  hosts:" >> inventory.yml
-            echo "    web:" >> inventory.yml
-            echo "      ansible_host: $(cat public_ip.txt)" >> inventory.yml
-            echo "      ansible_user: azureuser" >> inventory.yml
-            echo "      ansible_ssh_private_key_file: ~/.ssh/id_rsa" >> inventory.yml
+            PUBLIC_IP=$(cat public_ip.txt)
+            cat <<EOF > inventory.yml
+all:
+  hosts:
+    web:
+      ansible_host: $PUBLIC_IP
+      ansible_user: azureuser
+      ansible_ssh_private_key_file: ../id_rsa
+EOF
           '''
         }
       }
     }
+
     stage('Ansible Deploy') {
       steps {
         dir('ansible') {
@@ -57,6 +66,7 @@ pipeline {
         }
       }
     }
+
     stage('Verify Deployment') {
       steps {
         sh '''
@@ -66,10 +76,25 @@ pipeline {
       }
     }
   }
+
   post {
     always {
-      dir('terraform') {
-        sh 'terraform destroy -auto-approve'
+      withCredentials([
+        string(credentialsId: 'azure-client-id', variable: 'ARM_CLIENT_ID'),
+        string(credentialsId: 'azure-client-secret', variable: 'ARM_CLIENT_SECRET'),
+        string(credentialsId: 'azure-tenant-id', variable: 'ARM_TENANT_ID'),
+        string(credentialsId: 'azure-subscription-id', variable: 'ARM_SUBSCRIPTION_ID')
+      ]) {
+        dir('terraform') {
+          sh '''
+            export ARM_CLIENT_ID=$ARM_CLIENT_ID
+            export ARM_CLIENT_SECRET=$ARM_CLIENT_SECRET
+            export ARM_TENANT_ID=$ARM_TENANT_ID
+            export ARM_SUBSCRIPTION_ID=$ARM_SUBSCRIPTION_ID
+
+            terraform destroy -auto-approve || true
+          '''
+        }
       }
     }
   }
