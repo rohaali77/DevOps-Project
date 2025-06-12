@@ -1,103 +1,75 @@
 pipeline {
   agent any
-
   environment {
-    SSH_KEY_PATH = "${WORKSPACE}/id_rsa"
+    AZURE_CREDENTIALS = credentials('azure-credentials')
+    SSH_CREDENTIALS = credentials('ssh-key')
   }
-
   stages {
-    stage('Clone Repository') {
+    stage('Checkout') {
       steps {
-        git url: 'https://github.com/rohaali77/DevOps-Project.git', branch: 'main'
+        git url: 'https://github.com/rohaali77/DevOps-Project', branch: 'main'
       }
     }
-
-    stage('Provision Infrastructure') {
+    stage('Debug Credentials') {
       steps {
-        withAzureCredentials(
-          credentialsId: 'azure-credentials',
-          subscriptionIdVariable: 'ARM_SUBSCRIPTION_ID',
-          clientIdVariable: 'ARM_CLIENT_ID',
-          clientSecretVariable: 'ARM_CLIENT_SECRET',
-          tenantIdVariable: 'ARM_TENANT_ID'
-        ) {
-          dir('terraform') {
-            sh '''
-              export ARM_CLIENT_ID=$ARM_CLIENT_ID
-              export ARM_CLIENT_SECRET=$ARM_CLIENT_SECRET
-              export ARM_TENANT_ID=$ARM_TENANT_ID
-              export ARM_SUBSCRIPTION_ID=$ARM_SUBSCRIPTION_ID
-
-              terraform init
-              terraform apply -auto-approve
-              terraform output -raw public_ip > ../ansible/public_ip.txt
-            '''
-          }
+        sh 'echo $ARM_CLIENT_ID'
+        sh 'echo $ARM_SUBSCRIPTION_ID'
+        sh 'echo $ARM_TENANT_ID'
+        sh 'echo $ARM_CLIENT_SECRET'
+      }
+    }
+    stage('Terraform Init') {
+      steps {
+        dir('terraform') {
+          sh 'terraform init'
         }
       }
     }
-
-    stage('Prepare Ansible Inventory') {
+    stage('Terraform Apply') {
       steps {
-        withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key', keyFileVariable: 'SSH_KEY')]) {
-          dir('ansible') {
-            sh '''
-              cp $SSH_KEY ../id_rsa
-              chmod 600 ../id_rsa
-
-              PUBLIC_IP=$(cat public_ip.txt)
-
-              cat <<EOF > inventory.yml
-all:
-  hosts:
-    web:
-      ansible_host: $PUBLIC_IP
-      ansible_user: azureuser
-      ansible_ssh_private_key_file: ../id_rsa
-EOF
-            '''
-          }
+        dir('terraform') {
+          sh '''
+            terraform apply -auto-approve
+            terraform output -raw public_ip > ../ansible/public_ip.txt
+          '''
         }
       }
     }
-
-    stage('Deploy Web App with Ansible') {
+    stage('Ansible Inventory') {
+      steps {
+        dir('ansible') {
+          sh '''
+            echo "---" > inventory.yml
+            echo "all:" >> inventory.yml
+            echo "  hosts:" >> inventory.yml
+            echo "    web:" >> inventory.yml
+            echo "      ansible_host: $(cat public_ip.txt)" >> inventory.yml
+            echo "      ansible_user: azureuser" >> inventory.yml
+            echo "      ansible_ssh_private_key_file: ~/.ssh/id_rsa" >> inventory.yml
+          '''
+        }
+      }
+    }
+    stage('Ansible Deploy') {
       steps {
         dir('ansible') {
           sh 'ansible-playbook -i inventory.yml install_web.yml'
         }
       }
     }
-
     stage('Verify Deployment') {
       steps {
         sh '''
           PUBLIC_IP=$(cat ansible/public_ip.txt)
-          curl -f http://$PUBLIC_IP
+          curl http://$PUBLIC_IP
         '''
       }
     }
   }
-
   post {
     always {
-      withAzureCredentials(
-        credentialsId: 'azure-credentials',
-        subscriptionIdVariable: 'ARM_SUBSCRIPTION_ID',
-        clientIdVariable: 'ARM_CLIENT_ID',
-        clientSecretVariable: 'ARM_CLIENT_SECRET',
-        tenantIdVariable: 'ARM_TENANT_ID'
-      ) {
-        dir('terraform') {
-          sh '''
-            export ARM_CLIENT_ID=$ARM_CLIENT_ID
-            export ARM_CLIENT_SECRET=$ARM_CLIENT_SECRET
-            export ARM_TENANT_ID=$ARM_TENANT_ID
-            export ARM_SUBSCRIPTION_ID=$ARM_SUBSCRIPTION_ID
-
-            terraform destroy -auto-approve
-          '''
-        }
+      dir('terraform') {
+        sh 'terraform destroy -auto-approve'
       }
     }
   }
