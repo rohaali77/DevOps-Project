@@ -37,6 +37,11 @@ pipeline {
                 }
             }
         }
+        stage('Debug IP') {
+            steps {
+                sh 'cat ansible/public_ip.txt'
+            }
+        }
         stage('Wait for VM') {
             steps {
                 sh '''
@@ -60,7 +65,7 @@ pipeline {
                         echo "    web:" >> inventory.yml
                         echo "      ansible_host: $(cat public_ip.txt)" >> inventory.yml
                         echo "      ansible_user: azureuser" >> inventory.yml
-                        echo "      ansible_ssh_private_key_file: /root/.ssh/id_rsa" >> inventory.yml
+                        echo "      ansible_ssh_private_key_file: /var/jenkins_home/.ssh/id_rsa" >> inventory.yml
                     '''
                 }
             }
