@@ -37,6 +37,19 @@ pipeline {
                 }
             }
         }
+        stage('Wait for VM') {
+            steps {
+                sh '''
+                    PUBLIC_IP=$(cat ansible/public_ip.txt)
+                    echo "Waiting for VM at $PUBLIC_IP to be ready..."
+                    until nc -zv $PUBLIC_IP 22; do
+                        echo "SSH not ready, waiting..."
+                        sleep 10
+                    done
+                    echo "VM is up, proceeding with Ansible..."
+                '''
+            }
+        }
         stage('Ansible Inventory') {
             steps {
                 dir('ansible') {
@@ -55,7 +68,7 @@ pipeline {
         stage('Ansible Deploy') {
             steps {
                 dir('ansible') {
-                    sh '/usr/local/bin/ansible-playbook -i inventory.yml install_web.yml -e "ansible_ssh_common_args=\'-o StrictHostKeyChecking=no\'"'
+                    sh '/usr/local/bin/ansible-playbook -i inventory.yml install_web.yml --extra-vars "ansible_ssh_common_args=\'-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null\'"'
                 }
             }
         }
