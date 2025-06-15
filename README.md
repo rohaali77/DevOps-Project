@@ -33,7 +33,7 @@ During the deployment of the Azure VM using Terraform and Ansible via Jenkins, w
 - Ansible trying to use /root/.ssh/id_rsa instead of the correct path.
 - Connection attempts to incorrect IP addresses (e.g., private IP 172.172.223.125 instead of the expected public IP like 4.246.220.197).
 
-# Root Causes Investigated
+## Root Causes Investigated
 - Key Path Mismatch: The Jenkinsfile initially pointed to /root/.ssh/id_rsa, while the key was copied to /var/jenkins_home/.ssh/id_rsa.
 - Incorrect IP Address: Terraform’s public_ip output returned a private IP, causing Ansible to target the wrong address.
 - Key Mismatch or Permissions: The private key’s permissions were 0777 on the host, preventing ssh-keygen from reading it, and potential mismatches with the VM’s
@@ -41,7 +41,7 @@ During the deployment of the Azure VM using Terraform and Ansible via Jenkins, w
 - VM SSH Configuration: Possible misconfiguration in the VM’s SSH server settings.
 - Network/Firewall Issues: Potential blocking of port 22 by Azure NSG or timing issues with VM readiness.
 
-# Steps Taken to Resolve
+## Steps Taken to Resolve
 1. Verified and Fixed Key Permissions:
    - Adjusted permissions on the host private key (/mnt/c/Users/hp/.ssh/id_rsa) from 0777 to 600 using chmod in WSL or Windows Security settings to allow ssh
      keygen -y to extract the public key for comparison.
